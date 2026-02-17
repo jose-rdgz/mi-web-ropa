@@ -64,9 +64,9 @@ export default async function handler(req, res) {
         }
 
         if (!imagenFinal) {
-            return res.status(500).json({ 
+            return res.status(200).json({ 
                 error: "No se pudo extraer la imagen", 
-                debug: JSON.stringify(datos).substring(0, 500) 
+                debug: JSON.stringify(datos).substring(0, 1000) 
             });
         }
 
