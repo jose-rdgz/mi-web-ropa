@@ -29,6 +29,7 @@ export default async function handler(req, res) {
 
         const closing = Buffer.from(`--${boundary}--\r\n`);
 
+
         const body = Buffer.concat([
             buildPart("avatar_image", personaBuffer, "persona.jpg"),
             buildPart("clothing_image", prendaBuffer, "prenda.jpg"),
