@@ -1,3 +1,7 @@
+export const config = {
+    maxDuration: 60
+};
+
 export default async function handler(req, res) {
     if (req.method !== "POST") {
         return res.status(405).json({ error: "Método no permitido" });
@@ -6,12 +10,14 @@ export default async function handler(req, res) {
     const HF_TOKEN = process.env.HF_TOKEN;
     const { human_img, garm_img } = req.body;
 
+    if (!HF_TOKEN) {
+        return res.status(500).json({ error: "Token no configurado" });
+    }
+
     try {
-        // Primero obtenemos la URL de subida
         const uploadPersona = await subirImagenHF(human_img, HF_TOKEN);
         const uploadPrenda = await subirImagenHF(garm_img, HF_TOKEN);
 
-        // Llamamos al Space de Gradio
         const respuesta = await fetch(
             "https://yisol-idm-vton.hf.space/run/predict",
             {
@@ -41,7 +47,30 @@ export default async function handler(req, res) {
         }
 
         const datos = await respuesta.json();
-        res.json({ imagen: datos.data[0] });
+
+        // Extraer la imagen del resultado
+        let imagenFinal = null;
+
+        if (datos.data && datos.data[0]) {
+            const primerDato = datos.data[0];
+            // A veces viene como objeto con url, a veces como string base64
+            if (typeof primerDato === "string") {
+                imagenFinal = primerDato;
+            } else if (primerDato.url) {
+                imagenFinal = primerDato.url;
+            } else if (primerDato.path) {
+                imagenFinal = `https://yisol-idm-vton.hf.space/file=${primerDato.path}`;
+            }
+        }
+
+        if (!imagenFinal) {
+            return res.status(500).json({ 
+                error: "No se pudo extraer la imagen", 
+                debug: JSON.stringify(datos).substring(0, 500) 
+            });
+        }
+
+        res.json({ imagen: imagenFinal });
 
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -60,6 +89,10 @@ async function subirImagenHF(base64, token) {
         headers: { "Authorization": `Bearer ${token}` },
         body: formData
     });
+
+    if (!respuesta.ok) {
+        throw new Error(`Error subiendo imagen: ${await respuesta.text()}`);
+    }
 
     const datos = await respuesta.json();
     return datos[0];
