@@ -7,20 +7,30 @@ export default async function handler(req, res) {
     const { human_img, garm_img } = req.body;
 
     try {
+        // Primero obtenemos la URL de subida
+        const uploadPersona = await subirImagenHF(human_img, HF_TOKEN);
+        const uploadPrenda = await subirImagenHF(garm_img, HF_TOKEN);
+
+        // Llamamos al Space de Gradio
         const respuesta = await fetch(
-           "https://router.huggingface.co/models/yisol/IDM-VTON",
+            "https://yisol-idm-vton.hf.space/run/predict",
             {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${HF_TOKEN}`,
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${HF_TOKEN}`
                 },
                 body: JSON.stringify({
-                    inputs: {
-                        human_img,
-                        garm_img,
-                        garment_des: "prenda de ropa"
-                    }
+                    fn_index: 0,
+                    data: [
+                        { background: uploadPersona, layers: [], composite: null },
+                        uploadPrenda,
+                        "prenda de ropa",
+                        true,
+                        false,
+                        30,
+                        42
+                    ]
                 })
             }
         );
@@ -30,11 +40,27 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: errorText });
         }
 
-        const buffer = await respuesta.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString("base64");
-        res.json({ imagen: `data:image/png;base64,${base64}` });
+        const datos = await respuesta.json();
+        res.json({ imagen: datos.data[0] });
 
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+}
+
+async function subirImagenHF(base64, token) {
+    const buffer = Buffer.from(base64, "base64");
+    const blob = new Blob([buffer], { type: "image/jpeg" });
+
+    const formData = new FormData();
+    formData.append("files", blob, "imagen.jpg");
+
+    const respuesta = await fetch("https://yisol-idm-vton.hf.space/upload", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: formData
+    });
+
+    const datos = await respuesta.json();
+    return datos[0];
 }
