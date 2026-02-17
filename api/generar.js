@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
     try {
         const respuesta = await fetch(
-            "https://api-inference.huggingface.co/models/yisol/IDM-VTON",
+           "https://router.huggingface.co/models/yisol/IDM-VTON",
             {
                 method: "POST",
                 headers: {
