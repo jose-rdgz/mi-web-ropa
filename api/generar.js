@@ -2,6 +2,8 @@ export const config = {
     maxDuration: 60
 };
 
+const SPACE_URL = "https://acidown-idm-vton.hf.space";
+
 export default async function handler(req, res) {
     if (req.method !== "POST") {
         return res.status(405).json({ error: "Método no permitido" });
@@ -15,31 +17,30 @@ export default async function handler(req, res) {
     }
 
     try {
+        // Subir las dos imágenes al Space
         const uploadPersona = await subirImagenHF(human_img, HF_TOKEN);
         const uploadPrenda = await subirImagenHF(garm_img, HF_TOKEN);
 
-        const respuesta = await fetch(
-            "https://yisol-idm-vton.hf.space/run/predict",
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${HF_TOKEN}`
-                },
-                body: JSON.stringify({
-                    fn_index: 0,
-                    data: [
-                        { background: uploadPersona, layers: [], composite: null },
-                        uploadPrenda,
-                        "prenda de ropa",
-                        true,
-                        false,
-                        30,
-                        42
-                    ]
-                })
-            }
-        );
+        // Llamar al modelo
+        const respuesta = await fetch(`${SPACE_URL}/run/predict`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${HF_TOKEN}`
+            },
+            body: JSON.stringify({
+                fn_index: 0,
+                data: [
+                    { background: uploadPersona, layers: [], composite: null },
+                    uploadPrenda,
+                    "prenda de ropa",
+                    true,
+                    false,
+                    30,
+                    42
+                ]
+            })
+        });
 
         if (!respuesta.ok) {
             const errorText = await respuesta.text();
@@ -53,20 +54,19 @@ export default async function handler(req, res) {
 
         if (datos.data && datos.data[0]) {
             const primerDato = datos.data[0];
-            // A veces viene como objeto con url, a veces como string base64
             if (typeof primerDato === "string") {
                 imagenFinal = primerDato;
             } else if (primerDato.url) {
                 imagenFinal = primerDato.url;
             } else if (primerDato.path) {
-                imagenFinal = `https://yisol-idm-vton.hf.space/file=${primerDato.path}`;
+                imagenFinal = `${SPACE_URL}/file=${primerDato.path}`;
             }
         }
 
         if (!imagenFinal) {
-            return res.status(200).json({ 
-                error: "No se pudo extraer la imagen", 
-                debug: JSON.stringify(datos).substring(0, 1000) 
+            return res.status(500).json({
+                error: "No se pudo extraer la imagen",
+                debug: JSON.stringify(datos).substring(0, 1000)
             });
         }
 
@@ -84,7 +84,7 @@ async function subirImagenHF(base64, token) {
     const formData = new FormData();
     formData.append("files", blob, "imagen.jpg");
 
-    const respuesta = await fetch("https://yisol-idm-vton.hf.space/upload", {
+    const respuesta = await fetch(`${SPACE_URL}/upload`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
         body: formData
