@@ -2,45 +2,47 @@ export const config = {
     maxDuration: 60
 };
 
-const SPACE_URL = "https://nymbo-virtual-try-on.hf.space";
-
 export default async function handler(req, res) {
     if (req.method !== "POST") {
         return res.status(405).json({ error: "Método no permitido" });
     }
 
-    const HF_TOKEN = process.env.HF_TOKEN;
+    const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
     const { human_img, garm_img } = req.body;
 
-    if (!HF_TOKEN) {
-        return res.status(500).json({ error: "Token no configurado" });
+    if (!RAPIDAPI_KEY) {
+        return res.status(500).json({ error: "API key no configurada" });
     }
 
     try {
-        // Subir imagen de la persona
-        const uploadPersona = await subirImagenHF(human_img, HF_TOKEN);
-        // Subir imagen de la prenda
-        const uploadPrenda = await subirImagenHF(garm_img, HF_TOKEN);
+        // Convertir base64 a Blob para enviar como multipart/form-data
+        const personaBuffer = Buffer.from(human_img, "base64");
+        const prendaBuffer = Buffer.from(garm_img, "base64");
 
-        // Llamar al modelo
-        const respuesta = await fetch(`${SPACE_URL}/run/predict`, {
+        // Crear el FormData manualmente
+        const boundary = "----FormBoundary" + Math.random().toString(36).slice(2);
+
+        const buildPart = (name, buffer, filename) => {
+            const header = `--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="${filename}"\r\nContent-Type: image/jpeg\r\n\r\n`;
+            return Buffer.concat([Buffer.from(header), buffer, Buffer.from("\r\n")]);
+        };
+
+        const closing = Buffer.from(`--${boundary}--\r\n`);
+
+        const body = Buffer.concat([
+            buildPart("avatar_image", personaBuffer, "persona.jpg"),
+            buildPart("clothing_image", prendaBuffer, "prenda.jpg"),
+            closing
+        ]);
+
+        const respuesta = await fetch("https://try-on-diffusion.p.rapidapi.com/try-on-file", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${HF_TOKEN}`
+                "Content-Type": `multipart/form-data; boundary=${boundary}`,
+                "x-rapidapi-host": "try-on-diffusion.p.rapidapi.com",
+                "x-rapidapi-key": RAPIDAPI_KEY
             },
-            body: JSON.stringify({
-                fn_index: 0,
-                data: [
-                    { background: uploadPersona, layers: [], composite: null },
-                    uploadPrenda,
-                    "prenda de ropa",
-                    true,
-                    false,
-                    30,
-                    42
-                ]
-            })
+            body: body
         });
 
         if (!respuesta.ok) {
@@ -48,53 +50,13 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: errorText });
         }
 
-        const datos = await respuesta.json();
+        // La respuesta es directamente la imagen
+        const buffer = await respuesta.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString("base64");
 
-        // Extraer la imagen del resultado
-        let imagenFinal = null;
-
-        if (datos.data && datos.data[0]) {
-            const primerDato = datos.data[0];
-            if (typeof primerDato === "string") {
-                imagenFinal = primerDato;
-            } else if (primerDato.url) {
-                imagenFinal = primerDato.url;
-            } else if (primerDato.path) {
-                imagenFinal = `${SPACE_URL}/file=${primerDato.path}`;
-            }
-        }
-
-        if (!imagenFinal) {
-            return res.status(500).json({
-                error: "No se pudo extraer la imagen",
-                debug: JSON.stringify(datos).substring(0, 1000)
-            });
-        }
-
-        res.json({ imagen: imagenFinal });
+        res.json({ imagen: `data:image/jpeg;base64,${base64}` });
 
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-}
-
-async function subirImagenHF(base64, token) {
-    const buffer = Buffer.from(base64, "base64");
-    const blob = new Blob([buffer], { type: "image/jpeg" });
-
-    const formData = new FormData();
-    formData.append("files", blob, "imagen.jpg");
-
-    const respuesta = await fetch(`${SPACE_URL}/upload`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: formData
-    });
-
-    if (!respuesta.ok) {
-        throw new Error(`Error subiendo imagen: ${await respuesta.text()}`);
-    }
-
-    const datos = await respuesta.json();
-    return datos[0];
 }
