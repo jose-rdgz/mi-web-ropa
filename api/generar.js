@@ -2,7 +2,7 @@ export const config = {
     maxDuration: 60
 };
 
-const SPACE_URL = "https://acidown-idm-vton.hf.space";
+const SPACE_URL = "https://nymbo-virtual-try-on.hf.space";
 
 export default async function handler(req, res) {
     if (req.method !== "POST") {
@@ -17,8 +17,9 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Subir las dos imágenes al Space
+        // Subir imagen de la persona
         const uploadPersona = await subirImagenHF(human_img, HF_TOKEN);
+        // Subir imagen de la prenda
         const uploadPrenda = await subirImagenHF(garm_img, HF_TOKEN);
 
         // Llamar al modelo
