@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Try-On</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="contenedor">
+        <h1>👗 Pruébate la ropa virtualmente</h1>
+        <p class="subtitulo">Sube tu foto y las prendas, y la IA te las pondrá</p>
+
+        <div class="formulario">
+
+            <div class="campo">
+                <label>📸 Foto de la persona</label>
+                <input type="file" id="foto-persona" accept="image/*">
+                <img id="preview-persona" class="preview" />
+            </div>
+
+            <div class="campo">
+                <label>👕 Prenda superior (camiseta, chaqueta...)</label>
+                <input type="file" id="foto-superior" accept="image/*">
+                <img id="preview-superior" class="preview" />
+            </div>
+
+        </div>
+
+        <button id="btn-generar" onclick="generarImagen()">✨ Generar imagen</button>
+
+        <div id="resultado" class="resultado oculto">
+            <h2>Resultado:</h2>
+            <img id="imagen-resultado" />
+        </div>
+
+        <div id="cargando" class="cargando oculto">
+            <p>⏳ Generando imagen, espera unos segundos...</p>
+        </div>
+
+        <div id="error" class="error oculto"></div>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
